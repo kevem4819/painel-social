@@ -1,17 +1,26 @@
 const express = require("express");
+const session = require("express-session");
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* ===== "BANCO DE DADOS" EM MEMÓRIA ===== */
+/* ===== SESSÃO ===== */
+app.use(
+  session({
+    secret: process.env.JWT_SECRET || "segredo123",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+/* ===== "BANCO" EM MEMÓRIA ===== */
 const usuarios = [];
 const historico = {};
-let usuarioLogado = null;
 
-/* ===== PÁGINA INICIAL ===== */
+/* ===== PÁGINA PRINCIPAL ===== */
 app.get("/", (req, res) => {
-  if (!usuarioLogado) {
+  if (!req.session.usuario) {
     return res.send(`
       <html>
         <head>
@@ -45,8 +54,8 @@ app.get("/", (req, res) => {
           <div class="box">
             <h2>🚀 SocialPanel</h2>
             <form method="POST" action="/login">
-              <input name="email" placeholder="Email" />
-              <input name="senha" type="password" placeholder="Senha" />
+              <input name="email" placeholder="Email" required />
+              <input name="senha" type="password" placeholder="Senha" required />
               <button>Entrar</button>
             </form>
             <p><a href="/cadastro">Criar conta</a></p>
@@ -56,7 +65,8 @@ app.get("/", (req, res) => {
     `);
   }
 
-  /* ===== PAINEL ===== */
+  const usuario = req.session.usuario;
+
   res.send(`
     <html>
       <head>
@@ -67,7 +77,7 @@ app.get("/", (req, res) => {
             background: #111;
             color: white;
             padding: 15px;
-            font-size: 20px;
+            font-size: 18px;
           }
           .container {
             padding: 30px;
@@ -102,12 +112,11 @@ app.get("/", (req, res) => {
       </head>
 
       <body>
-        <header>👤 ${usuarioLogado}</header>
+        <header>👤 ${usuario}</header>
 
         <div class="container">
           <div class="box">
             <h3>Nova postagem</h3>
-
             <input id="video" placeholder="Link do vídeo" />
 
             <label><input type="checkbox" id="tiktok"> TikTok</label><br>
@@ -143,13 +152,13 @@ app.get("/", (req, res) => {
               .then(r => r.json())
               .then(h => {
                 document.getElementById("historico").innerHTML =
-                  h.map(i =>
-                    \`<div class="item">
-                      <b>\${i.data}</b><br>
-                      \${i.video}<br>
-                      \${i.redes.join(", ")}
-                    </div>\`
-                  ).reverse().join("");
+                  h.map(i => `
+                    <div class="item">
+                      <b>${i.data}</b><br>
+                      ${i.video}<br>
+                      ${i.redes.join(", ")}
+                    </div>
+                  `).reverse().join("");
               });
           }
 
@@ -168,13 +177,12 @@ app.get("/", (req, res) => {
 app.get("/cadastro", (req, res) => {
   res.send(`
     <html>
-      <head><title>Cadastro</title></head>
       <body style="font-family: Arial; background:#111; color:white;">
         <div style="max-width:300px;margin:120px auto;">
           <h2>Criar conta</h2>
           <form method="POST" action="/cadastro">
-            <input name="email" placeholder="Email" /><br><br>
-            <input name="senha" type="password" placeholder="Senha" /><br><br>
+            <input name="email" placeholder="Email" required /><br><br>
+            <input name="senha" type="password" placeholder="Senha" required /><br><br>
             <button>Cadastrar</button>
           </form>
         </div>
@@ -184,8 +192,7 @@ app.get("/cadastro", (req, res) => {
 });
 
 app.post("/cadastro", (req, res) => {
-  const email = req.body.email.trim();
-  const senha = req.body.senha.trim();
+  const { email, senha } = req.body;
 
   if (usuarios.find(u => u.email === email)) {
     return res.send("Usuário já existe");
@@ -198,56 +205,42 @@ app.post("/cadastro", (req, res) => {
 
 /* ===== LOGIN ===== */
 app.post("/login", (req, res) => {
-  const email = req.body.email?.trim();
-  const senha = req.body.senha?.trim();
+  const { email, senha } = req.body;
 
-  if (!email || !senha) {
-    return res.send("Dados inválidos");
-  }
-
-  // LOGIN ADMIN (Render ENV)
   if (
     email === process.env.ADMIN_EMAIL &&
     senha === process.env.ADMIN_PASSWORD
   ) {
-    usuarioLogado = email;
-
-    if (!historico[email]) {
-      historico[email] = [];
-    }
-
+    req.session.usuario = email;
+    historico[email] ||= [];
     return res.redirect("/");
   }
 
-  // LOGIN USUÁRIOS CADASTRADOS
   const user = usuarios.find(
     u => u.email === email && u.senha === senha
   );
 
-  if (!user) {
-    return res.send("Login inválido");
-  }
+  if (!user) return res.send("Login inválido");
 
-  usuarioLogado = email;
-  return res.redirect("/");
+  req.session.usuario = email;
+  res.redirect("/");
 });
 
 /* ===== LOGOUT ===== */
 app.get("/logout", (req, res) => {
-  usuarioLogado = null;
-  res.redirect("/");
+  req.session.destroy(() => res.redirect("/"));
 });
 
 /* ===== POSTAGEM ===== */
 app.post("/postar", (req, res) => {
-  if (!usuarioLogado) return res.status(401).end();
+  if (!req.session.usuario) return res.status(401).end();
 
   const redes = [];
   if (req.body.tiktok) redes.push("TikTok");
   if (req.body.instagram) redes.push("Instagram");
   if (req.body.facebook) redes.push("Facebook");
 
-  historico[usuarioLogado].push({
+  historico[req.session.usuario].push({
     data: new Date().toLocaleString(),
     video: req.body.video,
     redes
@@ -258,10 +251,12 @@ app.post("/postar", (req, res) => {
 
 /* ===== HISTÓRICO ===== */
 app.get("/historico", (req, res) => {
-  if (!usuarioLogado) return res.status(401).end();
-  res.json(historico[usuarioLogado]);
+  if (!req.session.usuario) return res.status(401).end();
+  res.json(historico[req.session.usuario]);
 });
 
-app.listen(3000, () => {
-  console.log("🟢 SocialPanel com múltiplos usuários");
+/* ===== SERVIDOR ===== */
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("🟢 SocialPanel rodando");
 });
