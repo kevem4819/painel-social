@@ -202,17 +202,34 @@ app.post("/login", (req, res) => {
   const senha = req.body.senha?.trim();
 
   if (!email || !senha) {
-    return res.status(400).json({ error: "Dados inválidos" });
+    return res.send("Dados inválidos");
   }
 
+  // LOGIN ADMIN (Render ENV)
   if (
     email === process.env.ADMIN_EMAIL &&
     senha === process.env.ADMIN_PASSWORD
   ) {
-    return res.json({ success: true });
+    usuarioLogado = email;
+
+    if (!historico[email]) {
+      historico[email] = [];
+    }
+
+    return res.redirect("/");
   }
 
-  return res.status(401).json({ error: "Login inválido" });
+  // LOGIN USUÁRIOS CADASTRADOS
+  const user = usuarios.find(
+    u => u.email === email && u.senha === senha
+  );
+
+  if (!user) {
+    return res.send("Login inválido");
+  }
+
+  usuarioLogado = email;
+  return res.redirect("/");
 });
 
 /* ===== LOGOUT ===== */
