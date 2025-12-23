@@ -198,17 +198,21 @@ app.post("/cadastro", (req, res) => {
 
 /* ===== LOGIN ===== */
 app.post("/login", (req, res) => {
-  const email = req.body.email.trim();
-  const senha = req.body.senha.trim();
+  const email = req.body.email?.trim();
+  const senha = req.body.senha?.trim();
 
-  const user = usuarios.find(
-    u => u.email === email && u.senha === senha
-  );
+  if (!email || !senha) {
+    return res.status(400).json({ error: "Dados inválidos" });
+  }
 
-  if (!user) return res.send("Login inválido");
+  if (
+    email === process.env.ADMIN_EMAIL &&
+    senha === process.env.ADMIN_PASSWORD
+  ) {
+    return res.json({ success: true });
+  }
 
-  usuarioLogado = email;
-  res.redirect("/");
+  return res.status(401).json({ error: "Login inválido" });
 });
 
 /* ===== LOGOUT ===== */
