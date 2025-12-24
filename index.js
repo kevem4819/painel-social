@@ -7,15 +7,12 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* ===== MONGODB (UMA ÚNICA CONEXÃO) ===== */
-const mongoPromise = mongoose
+/* ===== MONGODB (APENAS MONGOOSE) ===== */
+mongoose
   .connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 10000,
   })
-  .then(m => {
-    console.log("🟢 MongoDB conectado");
-    return m.connection.getClient();
-  })
+  .then(() => console.log("🟢 MongoDB conectado (mongoose)"))
   .catch(err => {
     console.error("🔴 Erro MongoDB:", err.message);
     process.exit(1);
@@ -37,7 +34,7 @@ const PostSchema = new mongoose.Schema({
 const User = mongoose.model("User", UserSchema);
 const Post = mongoose.model("Post", PostSchema);
 
-/* ===== SESSÃO (CORRETA) ===== */
+/* ===== SESSÃO (FORMA MAIS ESTÁVEL) ===== */
 app.use(
   session({
     name: "socialpanel.sid",
@@ -45,7 +42,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-      clientPromise: mongoPromise,
+      mongoUrl: process.env.MONGO_URI, // 👈 ESSENCIAL
       collectionName: "sessions",
     }),
     cookie: {
