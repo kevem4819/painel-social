@@ -7,29 +7,15 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* ===== VALIDA VARIÁVEIS ===== */
-if (!process.env.MONGO_URI) {
-  console.error("❌ MONGO_URI não definida");
-  process.exit(1);
-}
-
-if (!process.env.JWT_SECRET) {
-  console.error("❌ JWT_SECRET não definido");
-  process.exit(1);
-}
-
 /* ===== MONGODB ===== */
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("🟢 MongoDB conectado"))
-  .catch(err => {
-    console.error("🔴 Erro MongoDB:", err);
-    process.exit(1);
-  });
+  .catch(err => console.error("🔴 Erro MongoDB:", err));
 
 /* ===== MODELS ===== */
 const UserSchema = new mongoose.Schema({
-  email: { type: String, unique: true },
+  email: String,
   senha: String,
 });
 
@@ -43,18 +29,15 @@ const PostSchema = new mongoose.Schema({
 const User = mongoose.model("User", UserSchema);
 const Post = mongoose.model("Post", PostSchema);
 
-/* ===== SESSÃO ===== */
+/* ===== SESSÃO (CORRIGIDA) ===== */
 app.use(
   session({
-    secret: process.env.JWT_SECRET,
+    secret: process.env.JWT_SECRET || "segredo123",
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
+    store: MongoStore({
       mongoUrl: process.env.MONGO_URI,
     }),
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24, // 1 dia
-    },
   })
 );
 
@@ -63,49 +46,129 @@ app.get("/", async (req, res) => {
   if (!req.session.usuario) {
     return res.send(`
       <html>
-      <body style="font-family:Arial;background:#111;color:white;">
-        <div style="max-width:300px;margin:120px auto;">
-          <h2>🚀 SocialPanel</h2>
-          <form method="POST" action="/login">
-            <input name="email" placeholder="Email" required /><br><br>
-            <input name="senha" type="password" placeholder="Senha" required /><br><br>
-            <button>Entrar</button>
-          </form>
-          <p><a href="/cadastro" style="color:#4CAF50">Criar conta</a></p>
-        </div>
-      </body>
+        <head>
+          <title>SocialPanel</title>
+          <style>
+            body { font-family: Arial; background:#111; color:white; }
+            .box {
+              background:#1c1c1c;
+              padding:30px;
+              max-width:320px;
+              margin:120px auto;
+              border-radius:10px;
+            }
+            input, button {
+              width:100%;
+              padding:12px;
+              margin-top:12px;
+              border-radius:6px;
+              border:none;
+            }
+            button {
+              background:#4CAF50;
+              color:white;
+              font-weight:bold;
+              cursor:pointer;
+            }
+            a { color:#4CAF50; text-decoration:none; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2>🚀 SocialPanel</h2>
+            <form method="POST" action="/login">
+              <input name="email" placeholder="Email" required />
+              <input name="senha" type="password" placeholder="Senha" required />
+              <button>Entrar</button>
+            </form>
+            <p><a href="/cadastro">Criar conta</a></p>
+          </div>
+        </body>
       </html>
     `);
   }
 
-  const posts = await Post.find({ usuario: req.session.usuario }).sort({ _id: -1 });
+  const posts = await Post.find({ usuario: req.session.usuario });
 
   res.send(`
     <html>
-    <body style="font-family:Arial;background:#f4f6f8;padding:20px;">
-      <h3>👤 ${req.session.usuario}</h3>
+      <head>
+        <title>Painel</title>
+        <style>
+          body { margin:0; font-family:Arial; background:#f4f6f8; }
+          header {
+            background:#111;
+            color:white;
+            padding:15px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+          }
+          .container {
+            padding:30px;
+            max-width:700px;
+            margin:auto;
+          }
+          .box {
+            background:white;
+            padding:20px;
+            border-radius:8px;
+            margin-bottom:20px;
+            box-shadow:0 0 10px rgba(0,0,0,.05);
+          }
+          input, button {
+            width:100%;
+            padding:12px;
+            margin-top:10px;
+          }
+          button {
+            background:#111;
+            color:white;
+            border:none;
+            cursor:pointer;
+          }
+          .item {
+            background:#eee;
+            padding:10px;
+            border-radius:5px;
+            margin-top:10px;
+            font-size:14px;
+          }
+        </style>
+      </head>
 
-      <form method="POST" action="/postar">
-        <input name="video" placeholder="Link do vídeo" required /><br><br>
-        <label><input type="checkbox" name="tiktok"> TikTok</label><br>
-        <label><input type="checkbox" name="instagram"> Instagram</label><br>
-        <label><input type="checkbox" name="facebook"> Facebook</label><br><br>
-        <button>POSTAR</button>
-      </form>
+      <body>
+        <header>
+          <div>👤 ${req.session.usuario}</div>
+          <form action="/logout"><button>SAIR</button></form>
+        </header>
 
-      <form action="/logout" method="GET">
-        <button>SAIR</button>
-      </form>
+        <div class="container">
+          <div class="box">
+            <h3>Nova postagem</h3>
+            <form method="POST" action="/postar">
+              <input name="video" placeholder="Link do vídeo" required />
 
-      <h3>Histórico</h3>
-      ${posts.map(p => `
-        <div style="background:#fff;padding:10px;margin-bottom:10px;border-radius:5px;">
-          <b>${p.data}</b><br>
-          ${p.video}<br>
-          ${p.redes.join(", ")}
+              <label><input type="checkbox" name="tiktok"> TikTok</label><br>
+              <label><input type="checkbox" name="instagram"> Instagram</label><br>
+              <label><input type="checkbox" name="facebook"> Facebook</label><br>
+
+              <button>POSTAR</button>
+            </form>
+          </div>
+
+          <div class="box">
+            <h3>Histórico</h3>
+            ${posts.map(p => `
+              <div class="item">
+                <b>${p.data}</b><br>
+                ${p.video}<br>
+                ${p.redes.join(", ")}
+              </div>
+            `).reverse().join("")}
+          </div>
         </div>
-      `).join("")}
-    </body>
+      </body>
     </html>
   `);
 });
@@ -114,16 +177,16 @@ app.get("/", async (req, res) => {
 app.get("/cadastro", (req, res) => {
   res.send(`
     <html>
-    <body style="font-family:Arial;background:#111;color:white;">
-      <div style="max-width:300px;margin:120px auto;">
-        <h2>Criar conta</h2>
-        <form method="POST" action="/cadastro">
-          <input name="email" placeholder="Email" required /><br><br>
-          <input name="senha" type="password" placeholder="Senha" required /><br><br>
-          <button>Cadastrar</button>
-        </form>
-      </div>
-    </body>
+      <body style="font-family:Arial;background:#111;color:white;">
+        <div style="max-width:300px;margin:120px auto;">
+          <h2>Criar conta</h2>
+          <form method="POST" action="/cadastro">
+            <input name="email" placeholder="Email" required /><br><br>
+            <input name="senha" type="password" placeholder="Senha" required /><br><br>
+            <button>Cadastrar</button>
+          </form>
+        </div>
+      </body>
     </html>
   `);
 });
@@ -142,6 +205,7 @@ app.post("/cadastro", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, senha } = req.body;
 
+  // Admin
   if (
     email === process.env.ADMIN_EMAIL &&
     senha === process.env.ADMIN_PASSWORD
