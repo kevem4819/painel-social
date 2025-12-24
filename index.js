@@ -7,14 +7,29 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+/* ===== VALIDA VARIÁVEIS ===== */
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI não definida");
+  process.exit(1);
+}
+
+if (!process.env.JWT_SECRET) {
+  console.error("❌ JWT_SECRET não definido");
+  process.exit(1);
+}
+
 /* ===== MONGODB ===== */
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("🟢 MongoDB conectado"))
-  .catch(err => console.error("🔴 Erro MongoDB:", err));
+  .catch(err => {
+    console.error("🔴 Erro MongoDB:", err);
+    process.exit(1);
+  });
 
 /* ===== MODELS ===== */
 const UserSchema = new mongoose.Schema({
-  email: String,
+  email: { type: String, unique: true },
   senha: String,
 });
 
@@ -37,6 +52,9 @@ app.use(
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
     }),
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24, // 1 dia
+    },
   })
 );
 
@@ -60,11 +78,11 @@ app.get("/", async (req, res) => {
     `);
   }
 
-  const posts = await Post.find({ usuario: req.session.usuario });
+  const posts = await Post.find({ usuario: req.session.usuario }).sort({ _id: -1 });
 
   res.send(`
     <html>
-    <body style="font-family:Arial;background:#f4f6f8;">
+    <body style="font-family:Arial;background:#f4f6f8;padding:20px;">
       <h3>👤 ${req.session.usuario}</h3>
 
       <form method="POST" action="/postar">
@@ -75,17 +93,18 @@ app.get("/", async (req, res) => {
         <button>POSTAR</button>
       </form>
 
-      <form action="/logout"><button>SAIR</button></form>
+      <form action="/logout" method="GET">
+        <button>SAIR</button>
+      </form>
 
       <h3>Histórico</h3>
       ${posts.map(p => `
-        <div>
+        <div style="background:#fff;padding:10px;margin-bottom:10px;border-radius:5px;">
           <b>${p.data}</b><br>
           ${p.video}<br>
           ${p.redes.join(", ")}
         </div>
-        <hr>
-      `).reverse().join("")}
+      `).join("")}
     </body>
     </html>
   `);
@@ -99,8 +118,8 @@ app.get("/cadastro", (req, res) => {
       <div style="max-width:300px;margin:120px auto;">
         <h2>Criar conta</h2>
         <form method="POST" action="/cadastro">
-          <input name="email" required /><br><br>
-          <input name="senha" type="password" required /><br><br>
+          <input name="email" placeholder="Email" required /><br><br>
+          <input name="senha" type="password" placeholder="Senha" required /><br><br>
           <button>Cadastrar</button>
         </form>
       </div>
@@ -123,7 +142,6 @@ app.post("/cadastro", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, senha } = req.body;
 
-  // Admin
   if (
     email === process.env.ADMIN_EMAIL &&
     senha === process.env.ADMIN_PASSWORD
