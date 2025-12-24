@@ -29,15 +29,20 @@ const PostSchema = new mongoose.Schema({
 const User = mongoose.model("User", UserSchema);
 const Post = mongoose.model("Post", PostSchema);
 
-/* ===== SESSÃO (CORRIGIDA) ===== */
+/* ===== SESSÃO (CORRIGIDA DEFINITIVAMENTE) ===== */
 app.use(
   session({
+    name: "socialpanel.sid",
     secret: process.env.JWT_SECRET || "segredo123",
     resave: false,
     saveUninitialized: false,
-    store: MongoStore({
+    store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
+      collectionName: "sessions",
     }),
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24, // 1 dia
+    },
   })
 );
 
@@ -140,7 +145,9 @@ app.get("/", async (req, res) => {
       <body>
         <header>
           <div>👤 ${req.session.usuario}</div>
-          <form action="/logout"><button>SAIR</button></form>
+          <form action="/logout" method="GET">
+            <button>SAIR</button>
+          </form>
         </header>
 
         <div class="container">
@@ -159,13 +166,18 @@ app.get("/", async (req, res) => {
 
           <div class="box">
             <h3>Histórico</h3>
-            ${posts.map(p => `
+            ${posts
+              .map(
+                p => `
               <div class="item">
                 <b>${p.data}</b><br>
                 ${p.video}<br>
                 ${p.redes.join(", ")}
               </div>
-            `).reverse().join("")}
+            `
+              )
+              .reverse()
+              .join("")}
           </div>
         </div>
       </body>
@@ -205,7 +217,6 @@ app.post("/cadastro", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, senha } = req.body;
 
-  // Admin
   if (
     email === process.env.ADMIN_EMAIL &&
     senha === process.env.ADMIN_PASSWORD
