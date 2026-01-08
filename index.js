@@ -102,70 +102,149 @@ app.get("/", async (req, res) => {
   const posts = await Post.find({ usuario: req.session.usuario });
 
   res.send(`
-    <html>
-      <body style="font-family:Arial;background:#f4f6f8;padding:30px;">
-        <h2>👤 ${req.session.usuario}</h2>
-        <form action="/logout" method="GET">
-          <button>Sair</button>
-        </form>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>SocialPanel</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
 
-        <h3>Nova postagem</h3>
-        <form method="POST" action="/postar">
-          <input name="video" placeholder="Link do vídeo" required /><br><br>
+    header {
+      background: #020617;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1e293b;
+    }
 
-          <label><input type="checkbox" name="tiktok"> TikTok</label><br>
-          <label><input type="checkbox" name="instagram"> Instagram</label><br>
-          <label><input type="checkbox" name="facebook"> Facebook</label><br><br>
+    header h2 {
+      margin: 0;
+      color: #22c55e;
+    }
 
-          <button>POSTAR</button>
-        </form>
+    .logout {
+      background: #dc2626;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
 
-        <h3>Histórico</h3>
-        ${posts
-          .map(
-            p => `
-          <div style="background:#eee;padding:10px;margin:10px 0">
-            <b>${p.data}</b><br>
+    .container {
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .card {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .card h3 {
+      margin-top: 0;
+      color: #38bdf8;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 14px;
+      border-radius: 8px;
+      border: none;
+      margin-bottom: 15px;
+      font-size: 15px;
+    }
+
+    .checkboxes label {
+      display: block;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .postar {
+      margin-top: 15px;
+      background: #22c55e;
+      border: none;
+      padding: 14px;
+      width: 100%;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      color: #022c22;
+    }
+
+    .item {
+      background: #020617;
+      border: 1px solid #1e293b;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .item span {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h2>🚀 SocialPanel</h2>
+    <form action="/logout" method="GET">
+      <button class="logout">Sair</button>
+    </form>
+  </header>
+
+  <div class="container">
+
+    <div class="card">
+      <h3>Nova postagem</h3>
+      <form method="POST" action="/postar">
+        <input type="text" name="video" placeholder="Link do vídeo" required>
+
+        <div class="checkboxes">
+          <label><input type="checkbox" name="tiktok"> TikTok</label>
+          <label><input type="checkbox" name="instagram"> Instagram</label>
+          <label><input type="checkbox" name="facebook"> Facebook</label>
+        </div>
+
+        <button class="postar">Postar</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Histórico</h3>
+      ${
+        posts.map(p => `
+          <div class="item">
+            <span>${p.data}</span><br>
             ${p.video}<br>
             ${p.redes.join(", ")}
-          </div>`
-          )
-          .reverse()
-          .join("")}
-      </body>
-    </html>
-  `);
-});
+          </div>
+        `).reverse().join("")
+      }
+    </div>
 
-/* ===== CADASTRO ===== */
-app.get("/cadastro", (req, res) => {
-  res.send(`
-    <html>
-      <body style="font-family:Arial;background:#111;color:white;">
-        <div style="max-width:300px;margin:120px auto;">
-          <h2>Criar conta</h2>
-          <form method="POST" action="/cadastro">
-            <input name="email" placeholder="Email" required /><br><br>
-            <input name="senha" type="password" placeholder="Senha" required /><br><br>
-            <button>Cadastrar</button>
-          </form>
-        </div>
-      </body>
-    </html>
-  `);
-});
+  </div>
+</body>
+</html>
+`);
 
-app.post("/cadastro", async (req, res) => {
-  const { email, senha } = req.body;
-
-  const existe = await User.findOne({ email });
-  if (existe) return res.send("Usuário já existe");
-
-  const hash = await bcrypt.hash(senha, 10);
-  await User.create({ email, senha: hash });
-
-  res.redirect("/");
-});
 
 /* ===== LOGIN ===== */
 app.post("/login", async (req, res) => {
