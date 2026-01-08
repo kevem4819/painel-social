@@ -2,9 +2,14 @@ const express = require("express");
 const session = require("express-session");
 const mongoose = require("mongoose");
 const MongoStore = require("connect-mongo");
-const bcrypt = require("bcrypt");
 
 const app = express();
+
+// 🔴 ESSA LINHA É OBRIGATÓRIA NO RENDER
+app.set("trust proxy", 1);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -36,7 +41,7 @@ const Post = mongoose.model("Post", PostSchema);
 app.use(
   session({
     name: "socialpanel.sid",
-    secret: process.env.JWT_SECRET || "segredo_super_forte",
+    secret: process.env.JWT_SECRET || "segredo123",
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
@@ -44,10 +49,9 @@ app.use(
       collectionName: "sessions",
     }),
     cookie: {
-      maxAge: 1000 * 60 * 60 * 24, // 1 dia
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24,
+      sameSite: "none",
+      secure: true,
     },
   })
 );
