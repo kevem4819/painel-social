@@ -2,26 +2,24 @@ const express = require("express");
 const session = require("express-session");
 const mongoose = require("mongoose");
 const MongoStore = require("connect-mongo");
+const bcrypt = require("bcrypt");
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* ===== MONGODB (APENAS MONGOOSE) ===== */
+/* ===== MONGODB ===== */
 mongoose
   .connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 10000,
   })
-  .then(() => console.log("🟢 MongoDB conectado (mongoose)"))
-  .catch(err => {
-    console.error("🔴 Erro MongoDB:", err.message);
-    process.exit(1);
-  });
+  .then(() => console.log("🟢 MongoDB conectado"))
+  .catch(err => console.error("🔴 Erro MongoDB:", err.message));
 
 /* ===== MODELS ===== */
 const UserSchema = new mongoose.Schema({
-  email: String,
-  senha: String,
+  email: { type: String, unique: true },
+  senha: String, // hash bcrypt
 });
 
 const PostSchema = new mongoose.Schema({
@@ -34,19 +32,22 @@ const PostSchema = new mongoose.Schema({
 const User = mongoose.model("User", UserSchema);
 const Post = mongoose.model("Post", PostSchema);
 
-/* ===== SESSÃO (FORMA MAIS ESTÁVEL) ===== */
+/* ===== SESSÃO (SEGURA) ===== */
 app.use(
   session({
     name: "socialpanel.sid",
-    secret: process.env.JWT_SECRET || "segredo123",
+    secret: process.env.JWT_SECRET || "segredo_super_forte",
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI, // 👈 ESSENCIAL
+      mongoUrl: process.env.MONGO_URI,
       collectionName: "sessions",
     }),
     cookie: {
-      maxAge: 1000 * 60 * 60 * 24,
+      maxAge: 1000 * 60 * 60 * 24, // 1 dia
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     },
   })
 );
@@ -56,15 +57,42 @@ app.get("/", async (req, res) => {
   if (!req.session.usuario) {
     return res.send(`
       <html>
-        <body style="background:#111;color:white;font-family:Arial">
-          <div style="max-width:300px;margin:120px auto">
+        <head>
+          <title>SocialPanel</title>
+          <style>
+            body { font-family: Arial; background:#111; color:white; }
+            .box {
+              background:#1c1c1c;
+              padding:30px;
+              max-width:320px;
+              margin:120px auto;
+              border-radius:10px;
+            }
+            input, button {
+              width:100%;
+              padding:12px;
+              margin-top:12px;
+              border-radius:6px;
+              border:none;
+            }
+            button {
+              background:#4CAF50;
+              color:white;
+              font-weight:bold;
+              cursor:pointer;
+            }
+            a { color:#4CAF50; text-decoration:none; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
             <h2>🚀 SocialPanel</h2>
             <form method="POST" action="/login">
-              <input name="email" placeholder="Email" required /><br><br>
-              <input name="senha" type="password" placeholder="Senha" required /><br><br>
+              <input name="email" placeholder="Email" required />
+              <input name="senha" type="password" placeholder="Senha" required />
               <button>Entrar</button>
             </form>
-            <a href="/cadastro">Criar conta</a>
+            <p><a href="/cadastro">Criar conta</a></p>
           </div>
         </body>
       </html>
@@ -75,29 +103,32 @@ app.get("/", async (req, res) => {
 
   res.send(`
     <html>
-      <body style="font-family:Arial">
+      <body style="font-family:Arial;background:#f4f6f8;padding:30px;">
         <h2>👤 ${req.session.usuario}</h2>
-        <form action="/logout"><button>Sair</button></form>
+        <form action="/logout" method="GET">
+          <button>Sair</button>
+        </form>
 
         <h3>Nova postagem</h3>
         <form method="POST" action="/postar">
-          <input name="video" placeholder="Link do vídeo" required /><br>
-          <label><input type="checkbox" name="tiktok"> TikTok</label>
-          <label><input type="checkbox" name="instagram"> Instagram</label>
-          <label><input type="checkbox" name="facebook"> Facebook</label><br>
-          <button>Postar</button>
+          <input name="video" placeholder="Link do vídeo" required /><br><br>
+
+          <label><input type="checkbox" name="tiktok"> TikTok</label><br>
+          <label><input type="checkbox" name="instagram"> Instagram</label><br>
+          <label><input type="checkbox" name="facebook"> Facebook</label><br><br>
+
+          <button>POSTAR</button>
         </form>
 
         <h3>Histórico</h3>
         ${posts
           .map(
             p => `
-            <div>
-              <b>${p.data}</b><br>
-              ${p.video}<br>
-              ${p.redes.join(", ")}
-            </div><hr>
-          `
+          <div style="background:#eee;padding:10px;margin:10px 0">
+            <b>${p.data}</b><br>
+            ${p.video}<br>
+            ${p.redes.join(", ")}
+          </div>`
           )
           .reverse()
           .join("")}
@@ -109,18 +140,30 @@ app.get("/", async (req, res) => {
 /* ===== CADASTRO ===== */
 app.get("/cadastro", (req, res) => {
   res.send(`
-    <form method="POST">
-      <input name="email" placeholder="Email" required />
-      <input name="senha" type="password" placeholder="Senha" required />
-      <button>Cadastrar</button>
-    </form>
+    <html>
+      <body style="font-family:Arial;background:#111;color:white;">
+        <div style="max-width:300px;margin:120px auto;">
+          <h2>Criar conta</h2>
+          <form method="POST" action="/cadastro">
+            <input name="email" placeholder="Email" required /><br><br>
+            <input name="senha" type="password" placeholder="Senha" required /><br><br>
+            <button>Cadastrar</button>
+          </form>
+        </div>
+      </body>
+    </html>
   `);
 });
 
 app.post("/cadastro", async (req, res) => {
   const { email, senha } = req.body;
-  if (await User.findOne({ email })) return res.send("Usuário já existe");
-  await User.create({ email, senha });
+
+  const existe = await User.findOne({ email });
+  if (existe) return res.send("Usuário já existe");
+
+  const hash = await bcrypt.hash(senha, 10);
+  await User.create({ email, senha: hash });
+
   res.redirect("/");
 });
 
@@ -128,16 +171,11 @@ app.post("/cadastro", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { email, senha } = req.body;
 
-  if (
-    email === process.env.ADMIN_EMAIL &&
-    senha === process.env.ADMIN_PASSWORD
-  ) {
-    req.session.usuario = email;
-    return res.redirect("/");
-  }
-
-  const user = await User.findOne({ email, senha });
+  const user = await User.findOne({ email });
   if (!user) return res.send("Login inválido");
+
+  const ok = await bcrypt.compare(senha, user.senha);
+  if (!ok) return res.send("Login inválido");
 
   req.session.usuario = email;
   res.redirect("/");
