@@ -48,13 +48,12 @@ app.use(
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
     }),
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24,
-      sameSite: "lax",
-      secure: true,
-    },
-  })
-);
+   cookie: {
+  maxAge: 1000 * 60 * 60 * 24,
+  sameSite: "none",
+  secure: true,
+},
+
 
 /* ===== HOME ===== */
 app.get("/", async (req, res) => {
