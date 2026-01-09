@@ -48,12 +48,13 @@ app.use(
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
     }),
-   cookie: {
-  maxAge: 1000 * 60 * 60 * 24,
-  sameSite: "none",
-  secure: true,
-},
-
+    cookie: {
+    maxAge: 1000 * 60 * 60 * 24,
+    sameSite: "none",
+    secure: true,
+  },
+})
+);
 
 /* ===== HOME ===== */
 app.get("/", async (req, res) => {
@@ -251,26 +252,21 @@ app.get("/", async (req, res) => {
 
 /* ===== LOGIN ===== */
 app.post("/login", async (req, res) => {
-  console.log("ADMIN_EMAIL ENV =", process.env.ADMIN_EMAIL);
-  console.log("ADMIN_PASSWORD ENV =", process.env.ADMIN_PASSWORD);
-
   const { email, senha } = req.body;
 
   if (
     email === process.env.ADMIN_EMAIL &&
     senha === process.env.ADMIN_PASSWORD
   ) {
-   req.session.usuario = email;
-return req.session.save(() => {
-  res.redirect("/");
-});
+    req.session.usuario = email;
+    return req.session.save(() => res.redirect("/"));
+  }
 
   const user = await User.findOne({ email, senha });
   if (!user) return res.send("Login inválido");
 
   req.session.usuario = email;
-req.session.save(() => {
-  res.redirect("/");
+  req.session.save(() => res.redirect("/"));
 });
 
 /* ===== LOGOUT ===== */
