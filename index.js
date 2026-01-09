@@ -44,17 +44,16 @@ app.use(
     secret: process.env.JWT_SECRET || "segredo123",
     resave: false,
     saveUninitialized: false,
+    proxy: true, // 🔥 ESSENCIAL
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
-      collectionName: "sessions",
     }),
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24,
-      sameSite: "none",
-      secure: true,
-    },
-  })
-);
+   cookie: {
+  maxAge: 1000 * 60 * 60 * 24,
+  sameSite: "none",
+  secure: true,
+},
+
 
 /* ===== HOME ===== */
 app.get("/", async (req, res) => {
