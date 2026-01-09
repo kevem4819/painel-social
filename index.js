@@ -252,13 +252,21 @@ app.get("/", async (req, res) => {
 
 /* ===== LOGIN ===== */
 app.post("/login", async (req, res) => {
+  console.log("ADMIN_EMAIL ENV =", process.env.ADMIN_EMAIL);
+  console.log("ADMIN_PASSWORD ENV =", process.env.ADMIN_PASSWORD);
+
   const { email, senha } = req.body;
 
-  const user = await User.findOne({ email });
-  if (!user) return res.send("Login inválido");
+  if (
+    email === process.env.ADMIN_EMAIL &&
+    senha === process.env.ADMIN_PASSWORD
+  ) {
+    req.session.usuario = email;
+    return res.redirect("/");
+  }
 
-  const ok = await bcrypt.compare(senha, user.senha);
-  if (!ok) return res.send("Login inválido");
+  const user = await User.findOne({ email, senha });
+  if (!user) return res.send("Login inválido");
 
   req.session.usuario = email;
   res.redirect("/");
