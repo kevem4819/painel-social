@@ -48,8 +48,8 @@ app.use(
     }),
     cookie: {
       maxAge: 1000 * 60 * 60 * 24,
-      sameSite: "lax",   // ✅ CORREÇÃO
-      secure: false,    // ✅ CORREÇÃO
+      sameSite: "none", // ✅ OBRIGATÓRIO
+      secure: true,     // ✅ OBRIGATÓRIO NO RENDER
     },
   })
 );
