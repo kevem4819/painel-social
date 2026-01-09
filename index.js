@@ -10,8 +10,6 @@ app.set("trust proxy", 1);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 /* ===== MONGODB ===== */
 mongoose
@@ -24,7 +22,7 @@ mongoose
 /* ===== MODELS ===== */
 const UserSchema = new mongoose.Schema({
   email: { type: String, unique: true },
-  senha: String, // hash bcrypt
+  senha: String,
 });
 
 const PostSchema = new mongoose.Schema({
@@ -37,7 +35,7 @@ const PostSchema = new mongoose.Schema({
 const User = mongoose.model("User", UserSchema);
 const Post = mongoose.model("Post", PostSchema);
 
-/* ===== SESSÃO (SEGURA) ===== */
+/* ===== SESSÃO (CORRIGIDA) ===== */
 app.use(
   session({
     name: "socialpanel.sid",
@@ -49,11 +47,11 @@ app.use(
       mongoUrl: process.env.MONGO_URI,
     }),
     cookie: {
-    maxAge: 1000 * 60 * 60 * 24,
-    sameSite: "none",
-    secure: true,
-  },
-})
+      maxAge: 1000 * 60 * 60 * 24,
+      sameSite: "lax",   // ✅ CORREÇÃO
+      secure: false,    // ✅ CORREÇÃO
+    },
+  })
 );
 
 /* ===== HOME ===== */
@@ -96,7 +94,6 @@ app.get("/", async (req, res) => {
               <input name="senha" type="password" placeholder="Senha" required />
               <button>Entrar</button>
             </form>
-            <p><a href="/cadastro">Criar conta</a></p>
           </div>
         </body>
       </html>
@@ -111,144 +108,34 @@ app.get("/", async (req, res) => {
 <head>
   <meta charset="UTF-8">
   <title>SocialPanel</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-    }
-
-    header {
-      background: #020617;
-      padding: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #1e293b;
-    }
-
-    header h2 {
-      margin: 0;
-      color: #22c55e;
-    }
-
-    .logout {
-      background: #dc2626;
-      border: none;
-      padding: 10px 16px;
-      border-radius: 6px;
-      color: white;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 30px auto;
-      padding: 0 20px;
-    }
-
-    .card {
-      background: #020617;
-      border: 1px solid #1e293b;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 25px;
-    }
-
-    .card h3 {
-      margin-top: 0;
-      color: #38bdf8;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 14px;
-      border-radius: 8px;
-      border: none;
-      margin-bottom: 15px;
-      font-size: 15px;
-    }
-
-    .checkboxes label {
-      display: block;
-      margin-bottom: 8px;
-      cursor: pointer;
-    }
-
-    .postar {
-      margin-top: 15px;
-      background: #22c55e;
-      border: none;
-      padding: 14px;
-      width: 100%;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      color: #022c22;
-    }
-
-    .item {
-      background: #020617;
-      border: 1px solid #1e293b;
-      padding: 15px;
-      border-radius: 8px;
-      margin-top: 10px;
-      font-size: 14px;
-    }
-
-    .item span {
-      color: #94a3b8;
-      font-size: 12px;
-    }
-  </style>
 </head>
-
 <body>
-  <header>
-    <h2>🚀 SocialPanel</h2>
-    <form action="/logout" method="GET">
-      <button class="logout">Sair</button>
-    </form>
-  </header>
+  <h2>🚀 SocialPanel</h2>
+  <form action="/logout" method="GET">
+    <button>Sair</button>
+  </form>
 
-  <div class="container">
+  <form method="POST" action="/postar">
+    <input name="video" placeholder="Link do vídeo" required />
+    <label><input type="checkbox" name="tiktok"> TikTok</label>
+    <label><input type="checkbox" name="instagram"> Instagram</label>
+    <label><input type="checkbox" name="facebook"> Facebook</label>
+    <button>Postar</button>
+  </form>
 
-    <div class="card">
-      <h3>Nova postagem</h3>
-      <form method="POST" action="/postar">
-        <input type="text" name="video" placeholder="Link do vídeo" required>
+  <hr/>
 
-        <div class="checkboxes">
-          <label><input type="checkbox" name="tiktok"> TikTok</label>
-          <label><input type="checkbox" name="instagram"> Instagram</label>
-          <label><input type="checkbox" name="facebook"> Facebook</label>
-        </div>
-
-        <button class="postar">Postar</button>
-      </form>
+  ${posts.map(p => `
+    <div>
+      <strong>${p.data}</strong><br/>
+      ${p.video}<br/>
+      ${p.redes.join(", ")}
     </div>
-
-    <div class="card">
-      <h3>Histórico</h3>
-      ${
-        posts.map(p => `
-          <div class="item">
-            <span>${p.data}</span><br>
-            ${p.video}<br>
-            ${p.redes.join(", ")}
-          </div>
-        `).reverse().join("")
-      }
-    </div>
-
-  </div>
+  `).join("")}
 </body>
 </html>
 `);
-
+});
 
 /* ===== LOGIN ===== */
 app.post("/login", async (req, res) => {
