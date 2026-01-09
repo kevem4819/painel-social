@@ -44,16 +44,17 @@ app.use(
     secret: process.env.JWT_SECRET || "segredo123",
     resave: false,
     saveUninitialized: false,
-    proxy: true, // 🔥 ESSENCIAL
+    proxy: true,
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_URI,
     }),
-   cookie: {
-  maxAge: 1000 * 60 * 60 * 24,
-  sameSite: "lax",
-  secure: true,
-},
-
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24,
+      sameSite: "lax",
+      secure: true,
+    },
+  })
+);
 
 /* ===== HOME ===== */
 app.get("/", async (req, res) => {
@@ -260,14 +261,16 @@ app.post("/login", async (req, res) => {
     email === process.env.ADMIN_EMAIL &&
     senha === process.env.ADMIN_PASSWORD
   ) {
-    req.session.usuario = email;
-    return res.redirect("/");
-  }
+   req.session.usuario = email;
+return req.session.save(() => {
+  res.redirect("/");
+});
 
   const user = await User.findOne({ email, senha });
   if (!user) return res.send("Login inválido");
 
   req.session.usuario = email;
+req.session.save(() => {
   res.redirect("/");
 });
 
